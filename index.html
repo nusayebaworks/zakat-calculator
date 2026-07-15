@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zakat — Calculator & Tracker</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1512">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zakat">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #0f1512; --panel: #161d19; --panel-2: #1c2420; --border: #2a3530;
+    --text: #eef1ee; --text-dim: #9aa79f; --accent: #2fae6f; --accent-dim: #1f7a4d;
+    --warn: #d99a3c; --danger: #d9614f; --gold: #d4af37; --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5; padding:20px 14px 80px; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  header { text-align:center; margin-bottom:20px; }
+  header h1 { font-size:1.4rem; margin:0 0 4px; }
+  header p { color:var(--text-dim); font-size:0.85rem; margin:0; }
+
+  .tabs { display:flex; gap:6px; background:var(--panel-2); border:1px solid var(--border);
+    border-radius:10px; padding:4px; margin-bottom:18px; }
+  .tabs button { flex:1; background:none; border:none; color:var(--text-dim); padding:9px;
+    border-radius:8px; cursor:pointer; font-size:0.85rem; font-weight:500; }
+  .tabs button.active { background:var(--accent-dim); color:white; }
+  .tab-panel { display:none; } .tab-panel.active { display:block; }
+
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; margin-bottom:14px; }
+  .card h2 { font-size:0.95rem; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+  .card h2 .badge { font-size:0.68rem; background:var(--panel-2); color:var(--text-dim);
+    padding:2px 8px; border-radius:20px; border:1px solid var(--border); font-weight:normal; }
+  .card h2 .lock { font-size:0.68rem; background:rgba(212,175,55,0.12); color:var(--gold);
+    padding:2px 8px; border-radius:20px; border:1px solid rgba(212,175,55,0.4); }
+
+  .row { display:flex; gap:10px; align-items:center; margin-bottom:9px; }
+  .row:last-child { margin-bottom:0; }
+  .row label { flex:1; font-size:0.86rem; color:var(--text-dim); }
+  .row .hint { display:block; font-size:0.73rem; color:#6b7871; margin-top:2px; }
+  input[type=number], input[type=date], input[type=email], select {
+    width:150px; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:8px 10px; border-radius:8px; font-size:0.88rem; outline:none;
+  }
+  input:focus, select:focus { border-color:var(--accent-dim); }
+  @media (max-width:520px) {
+    .row { flex-direction:column; align-items:stretch; }
+    input[type=number], input[type=date], input[type=email], select { width:100%; }
+  }
+
+  .nisab-toggle { display:flex; gap:8px; margin-bottom:12px; }
+  .nisab-toggle button { flex:1; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text-dim); padding:8px; border-radius:8px; cursor:pointer; font-size:0.83rem; }
+  .nisab-toggle button.active { background:var(--accent-dim); color:white; border-color:var(--accent); }
+
+  .result-card { background:linear-gradient(160deg,#16261e,#101613); border:1px solid var(--accent-dim); }
+  .result-line { display:flex; justify-content:space-between; padding:6px 0;
+    border-bottom:1px dashed var(--border); font-size:0.86rem; }
+  .result-line:last-of-type { border-bottom:none; }
+  .result-line .neg { color:var(--danger); }
+  .zakat-due { text-align:center; padding:18px 0 6px; }
+  .zakat-due .amount { font-size:2.2rem; font-weight:700; color:var(--accent); }
+  .zakat-due .label { color:var(--text-dim); font-size:0.83rem; margin-top:4px; }
+  .status-pill { display:inline-block; margin:6px auto 0; padding:4px 12px; border-radius:20px; font-size:0.76rem; }
+  .status-pill.due { background:rgba(47,174,111,0.15); color:var(--accent); border:1px solid var(--accent-dim); }
+  .status-pill.notdue { background:rgba(217,154,60,0.15); color:var(--warn); border:1px solid var(--warn); }
+
+  .btn { background:var(--accent-dim); color:white; border:none; padding:10px 16px;
+    border-radius:8px; font-size:0.86rem; cursor:pointer; font-weight:500; }
+  .btn:hover { background:var(--accent); }
+  .btn.ghost { background:var(--panel-2); border:1px solid var(--border); color:var(--text); }
+  .btn.gold { background:var(--gold); color:#1a1400; }
+  .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .history-item { display:flex; justify-content:space-between; align-items:center;
+    padding:10px 0; border-bottom:1px solid var(--border); font-size:0.85rem; }
+  .history-item:last-child { border-bottom:none; }
+  .history-item .hdate { color:var(--text-dim); font-size:0.78rem; }
+  .history-item .hamt { color:var(--accent); font-weight:600; }
+  .empty-state { text-align:center; color:var(--text-dim); font-size:0.85rem; padding:20px 0; }
+
+  .pricing-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  @media (max-width:600px) { .pricing-grid { grid-template-columns:1fr; } }
+  .plan { background:var(--panel-2); border:1px solid var(--border); border-radius:10px;
+    padding:16px; text-align:center; position:relative; }
+  .plan.current { border-color:var(--accent); }
+  .plan.featured { border-color:var(--gold); }
+  .plan .tag { position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+    background:var(--gold); color:#1a1400; font-size:0.65rem; padding:2px 8px; border-radius:10px; font-weight:600; }
+  .plan h3 { margin:6px 0 2px; font-size:0.95rem; }
+  .plan .price { font-size:1.4rem; font-weight:700; margin:6px 0; }
+  .plan .price span { font-size:0.7rem; color:var(--text-dim); font-weight:400; }
+  .plan ul { list-style:none; padding:0; margin:10px 0; text-align:left; font-size:0.78rem; color:var(--text-dim); }
+  .plan ul li { padding:3px 0; }
+  .plan ul li::before { content:"✓ "; color:var(--accent); }
+
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--panel-2); border:1px solid var(--accent-dim); color:var(--text);
+    padding:10px 18px; border-radius:8px; font-size:0.84rem; opacity:0; transition:opacity 0.3s;
+    pointer-events:none; z-index:100; }
+  .toast.show { opacity:1; }
+
+  .disclaimer { font-size:0.73rem; color:#6b7871; text-align:center; margin-top:20px; padding:0 12px; }
+  .section-note { font-size:0.76rem; color:#6b7871; margin-top:8px; line-height:1.4; }
+  .loading-row { text-align:center; color:var(--text-dim); font-size:0.85rem; padding:20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🕌 Zakat — Calculator &amp; Tracker</h1>
+    <p id="planLabel">Free plan</p>
+  </header>
+
+  <div class="tabs">
+    <button class="active" onclick="switchTab('calc')">Calculator</button>
+    <button onclick="switchTab('history')">History</button>
+    <button onclick="switchTab('settings')">Settings</button>
+    <button onclick="switchTab('pricing')">Pricing</button>
+  </div>
+
+  <!-- CALCULATOR TAB -->
+  <div id="tab-calc" class="tab-panel active">
+    <div id="calcLoading" class="loading-row">Loading your saved profile…</div>
+    <div id="calcContent" style="display:none">
+
+      <div class="card">
+        <h2>Nisab Basis</h2>
+        <div class="nisab-toggle">
+          <button id="btn-silver" class="active" onclick="setNisab('silver')">Silver (612.36g)</button>
+          <button id="btn-gold" onclick="setNisab('gold')">Gold (87.48g)</button>
+        </div>
+        <div class="row">
+          <label>Current price per gram
+            <span class="hint">Use recent spot price in your currency</span>
+          </label>
+          <input type="number" id="metalPrice" value="1.10" step="0.01" oninput="calculate()">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Hawl (Lunar Year) Tracking</h2>
+        <div class="row">
+          <label>Date your wealth first reached nisab</label>
+          <input type="date" id="hawlStart" onchange="calculate()">
+        </div>
+        <div id="hawlResult" class="section-note"></div>
+      </div>
+
+      <div class="card">
+        <h2>Liquid Assets</h2>
+        <div class="row"><label>Cash on hand + bank balances</label><input type="number" class="asset" id="a-cash" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Gold owned (grams)</label><input type="number" id="goldGrams" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Silver owned (grams)</label><input type="number" id="silverGrams" value="0" oninput="calculate()"></div>
+      </div>
+
+      <div class="card">
+        <h2>Business &amp; Investments</h2>
+        <div class="row"><label>Business inventory (resale value)</label><input type="number" class="asset" id="a-inventory" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Trading stocks/ETFs (market value)</label><input type="number" class="asset" id="a-tradingstock" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Long-term stock (zakatable portion)</label><input type="number" class="asset" id="a-ltstock" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Vested RSUs (market value)</label><input type="number" class="asset" id="a-rsu" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Crypto holdings</label><input type="number" class="asset" id="a-crypto" value="0" oninput="calculate()"></div>
+      </div>
+
+      <div class="card">
+        <h2>Receivables &amp; Rental</h2>
+        <div class="row"><label>Money owed to you</label><input type="number" class="asset" id="a-receivables" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Unspent rental income</label><input type="number" class="asset" id="a-rental" value="0" oninput="calculate()"></div>
+      </div>
+
+      <div class="card">
+        <h2>Liabilities</h2>
+        <div class="row"><label>Debts due within 12 months</label><input type="number" class="liability" id="l-debt" value="0" oninput="calculate()"></div>
+        <div class="row"><label>Bills/wages payable now</label><input type="number" class="liability" id="l-bills" value="0" oninput="calculate()"></div>
+      </div>
+
+      <div class="card result-card">
+        <h2>Result</h2>
+        <div class="result-line"><span>Total Zakatable Assets</span><span id="rTotalAssets">0.00</span></div>
+        <div class="result-line"><span>Less: Liabilities Due</span><span class="neg" id="rLiabilities">0.00</span></div>
+        <div class="result-line"><span>Net Zakatable Wealth</span><span id="rNet">0.00</span></div>
+        <div class="result-line"><span>Nisab Threshold</span><span id="rNisab">0.00</span></div>
+        <div class="zakat-due">
+          <div class="amount" id="rZakat">0.00</div>
+          <div class="label">Zakat Due (2.5% of net wealth)</div>
+          <div id="rStatus" class="status-pill notdue">Below Nisab — Not Due</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" onclick="saveProfile(true)">💾 Save calculation to history</button>
+          <button class="btn ghost" onclick="exportReceipt()">🧾 Export receipt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-history" class="tab-panel">
+    <div class="card">
+      <h2>Calculation History <span class="badge" id="historyCount">0 records</span></h2>
+      <div id="historyList"><div class="empty-state">No saved calculations yet — save one from the Calculator tab.</div></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div id="tab-settings" class="tab-panel">
+    <div class="card">
+      <h2>Hawl Reminders <span class="lock" id="reminderLock">Plus feature</span></h2>
+      <div class="row">
+        <label>Email for reminder</label>
+        <input type="email" id="reminderEmail" placeholder="you@email.com">
+      </div>
+      <div class="row">
+        <label>Remind me before hawl completes</label>
+        <select id="reminderLead">
+          <option value="30">30 days</option>
+          <option value="14">14 days</option>
+          <option value="7">7 days</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="reminderSaveBtn" onclick="saveReminder()">Enable reminder</button>
+      </div>
+      <div class="section-note" id="reminderStatus"></div>
+      <div class="section-note">This MVP saves your reminder preference locally. In production this triggers an actual scheduled email via a backend job — not wired up in this demo.</div>
+    </div>
+
+    <div class="card">
+      <h2>Data</h2>
+      <div class="btn-row">
+        <button class="btn ghost" onclick="clearAllData()">Clear all saved data</button>
+      </div>
+      <div class="section-note">Your profile and history are stored privately and are not visible to anyone else.</div>
+    </div>
+  </div>
+
+  <!-- PRICING TAB -->
+  <div id="tab-pricing" class="tab-panel">
+    <div class="card">
+      <h2>Plans</h2>
+      <div class="pricing-grid">
+        <div class="plan" id="plan-free">
+          <h3>Free</h3>
+          <div class="price">$0</div>
+          <ul>
+            <li>Full zakat calculator</li>
+            <li>Hawl date tracking</li>
+            <li>1 saved calculation</li>
+          </ul>
+          <button class="btn ghost" disabled>Current on load</button>
+        </div>
+        <div class="plan featured" id="plan-plus">
+          <span class="tag">MOST POPULAR</span>
+          <h3>Plus</h3>
+          <div class="price">$18<span>/yr</span></div>
+          <ul>
+            <li>Unlimited history</li>
+            <li>Hawl email reminders</li>
+            <li>PDF receipt export</li>
+          </ul>
+          <button class="btn gold" onclick="upgrade('plus')">Upgrade</button>
+        </div>
+        <div class="plan" id="plan-pro">
+          <h3>Pro</h3>
+          <div class="price">$40<span>/yr</span></div>
+          <ul>
+            <li>Everything in Plus</li>
+            <li>Multi-year zakat trend chart</li>
+            <li>Business/family multi-profile</li>
+            <li>Priority scholar Q&A access</li>
+          </ul>
+          <button class="btn ghost" onclick="upgrade('pro')">Upgrade</button>
+        </div>
+      </div>
+      <div class="section-note">This is a demo paywall — upgrading here just unlocks the tier locally so you can see the gated features. A real build wires this to Stripe (halal-compliant: no interest, simple annual charge, no deferred-interest installment plans).</div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    This tool provides a calculation aid based on standard fiqh positions (2.5% rate, silver/gold nisab). Not a fatwa. Confirm business/RSU edge cases with a qualified scholar.
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let nisabType = 'silver';
+let plan = 'free';
+let history = [];
+
+const assetIds = ['a-cash','a-inventory','a-tradingstock','a-ltstock','a-rsu','a-crypto','a-receivables','a-rental'];
+const liabilityIds = ['l-debt','l-bills'];
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'history') renderHistory();
+}
+
+function setNisab(type) {
+  nisabType = type;
+  document.getElementById('btn-silver').classList.toggle('active', type === 'silver');
+  document.getElementById('btn-gold').classList.toggle('active', type === 'gold');
+  document.getElementById('metalPrice').value = type === 'silver' ? '1.10' : '75.00';
+  calculate();
+}
+
+function sumIds(ids) {
+  let total = 0;
+  ids.forEach(id => { total += parseFloat(document.getElementById(id).value) || 0; });
+  return total;
+}
+
+function calculate() {
+  const price = parseFloat(document.getElementById('metalPrice').value) || 0;
+  const goldGrams = parseFloat(document.getElementById('goldGrams').value) || 0;
+  const silverGrams = parseFloat(document.getElementById('silverGrams').value) || 0;
+
+  let goldVal, silverVal;
+  if (nisabType === 'gold') {
+    goldVal = goldGrams * price;
+    silverVal = silverGrams * (price / 68);
+  } else {
+    silverVal = silverGrams * price;
+    goldVal = goldGrams * (price * 68);
+  }
+
+  const otherAssets = sumIds(assetIds);
+  const liabilities = sumIds(liabilityIds);
+  const totalAssets = goldVal + silverVal + otherAssets;
+  const net = Math.max(0, totalAssets - liabilities);
+  const nisabThreshold = nisabType === 'silver' ? 612.36 * price : 87.48 * price;
+
+  const fmt = n => n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('rTotalAssets').textContent = fmt(totalAssets);
+  document.getElementById('rLiabilities').textContent = '-' + fmt(liabilities);
+  document.getElementById('rNet').textContent = fmt(net);
+  document.getElementById('rNisab').textContent = fmt(nisabThreshold);
+
+  const statusEl = document.getElementById('rStatus');
+  const zakatEl = document.getElementById('rZakat');
+  let zakatDue = 0;
+  if (net >= nisabThreshold && net > 0) {
+    zakatDue = net * 0.025;
+    zakatEl.textContent = fmt(zakatDue);
+    statusEl.textContent = 'At/Above Nisab — Zakat Due';
+    statusEl.className = 'status-pill due';
+  } else {
+    zakatEl.textContent = '0.00';
+    statusEl.textContent = 'Below Nisab — Not Due';
+    statusEl.className = 'status-pill notdue';
+  }
+
+  updateHawl();
+  return { totalAssets, liabilities, net, nisabThreshold, zakatDue };
+}
+
+function updateHawl() {
+  const startVal = document.getElementById('hawlStart').value;
+  const el = document.getElementById('hawlResult');
+  if (!startVal) { el.textContent = 'Set the date your wealth first stayed at/above nisab to track your due date.'; return; }
+  const start = new Date(startVal);
+  const lunarMs = 354.37 * 24 * 60 * 60 * 1000;
+  const due = new Date(start.getTime() + lunarMs);
+  const now = new Date();
+  const daysLeft = Math.ceil((due - now) / (24*60*60*1000));
+  const dueStr = due.toLocaleDateString(undefined, {year:'numeric', month:'long', day:'numeric'});
+  el.textContent = daysLeft > 0
+    ? `Hawl completes on ${dueStr} — ${daysLeft} day(s) from today.`
+    : `Hawl completed on ${dueStr}. If wealth stayed at/above nisab, zakat is due now.`;
+}
+
+function collectProfile() {
+  const profile = { nisabType, metalPrice: document.getElementById('metalPrice').value,
+    goldGrams: document.getElementById('goldGrams').value,
+    silverGrams: document.getElementById('silverGrams').value,
+    hawlStart: document.getElementById('hawlStart').value, assets: {}, liabilities: {} };
+  assetIds.forEach(id => profile.assets[id] = document.getElementById(id).value);
+  liabilityIds.forEach(id => profile.liabilities[id] = document.getElementById(id).value);
+  return profile;
+}
+
+function applyProfile(p) {
+  if (!p) return;
+  setNisab(p.nisabType || 'silver');
+  if (p.metalPrice) document.getElementById('metalPrice').value = p.metalPrice;
+  if (p.goldGrams) document.getElementById('goldGrams').value = p.goldGrams;
+  if (p.silverGrams) document.getElementById('silverGrams').value = p.silverGrams;
+  if (p.hawlStart) document.getElementById('hawlStart').value = p.hawlStart;
+  if (p.assets) assetIds.forEach(id => { if (p.assets[id] !== undefined) document.getElementById(id).value = p.assets[id]; });
+  if (p.liabilities) liabilityIds.forEach(id => { if (p.liabilities[id] !== undefined) document.getElementById(id).value = p.liabilities[id]; });
+}
+
+async function loadAll() {
+  try {
+    const profileRes = await window.storage.get('profile', false);
+    if (profileRes) applyProfile(JSON.parse(profileRes.value));
+  } catch (e) { /* no saved profile yet */ }
+
+  try {
+    const histRes = await window.storage.get('history', false);
+    if (histRes) history = JSON.parse(histRes.value);
+  } catch (e) { history = []; }
+
+  try {
+    const planRes = await window.storage.get('plan', false);
+    if (planRes) plan = JSON.parse(planRes.value);
+  } catch (e) { plan = 'free'; }
+
+  try {
+    const remRes = await window.storage.get('reminder', false);
+    if (remRes) {
+      const r = JSON.parse(remRes.value);
+      document.getElementById('reminderEmail').value = r.email || '';
+      document.getElementById('reminderLead').value = r.lead || '30';
+      if (r.enabled) document.getElementById('reminderStatus').textContent = `Reminder active for ${r.email}, ${r.lead} days before hawl.`;
+    }
+  } catch (e) { /* none saved */ }
+
+  updatePlanUI();
+  calculate();
+  document.getElementById('calcLoading').style.display = 'none';
+  document.getElementById('calcContent').style.display = 'block';
+}
+
+async function saveProfile(withToast) {
+  try {
+    const profile = collectProfile();
+    await window.storage.set('profile', JSON.stringify(profile), false);
+    const calc = calculate();
+
+    if (plan === 'free' && history.length >= 1) {
+      showToast('Free plan allows 1 saved calculation — upgrade to Plus for unlimited history');
+      switchTabProgrammatic('pricing');
+      return;
+    }
+
+    history.unshift({ date: new Date().toISOString(), net: calc.net, zakatDue: calc.zakatDue, nisabType });
+    await window.storage.set('history', JSON.stringify(history), false);
+    if (withToast) showToast('Calculation saved to history');
+  } catch (e) {
+    showToast('Could not save — please try again');
+  }
+}
+
+function switchTabProgrammatic(name) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const idx = ['calc','history','settings','pricing'].indexOf(name);
+  document.querySelectorAll('.tabs button')[idx].classList.add('active');
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  document.getElementById('historyCount').textContent = history.length + ' record' + (history.length === 1 ? '' : 's');
+  if (history.length === 0) {
+    list.innerHTML = '<div class="empty-state">No saved calculations yet — save one from the Calculator tab.</div>';
+    return;
+  }
+  list.innerHTML = history.map(h => {
+    const d = new Date(h.date).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'});
+    return `<div class="history-item"><div><div>${d}</div><div class="hdate">${h.nisabType} nisab · net ${h.net.toFixed(2)}</div></div><div class="hamt">${h.zakatDue.toFixed(2)} due</div></div>`;
+  }).join('');
+}
+
+async function saveReminder() {
+  if (plan === 'free') {
+    showToast('Hawl reminders are a Plus feature');
+    switchTabProgrammatic('pricing');
+    return;
+  }
+  const email = document.getElementById('reminderEmail').value;
+  const lead = document.getElementById('reminderLead').value;
+  if (!email) { showToast('Enter an email first'); return; }
+  try {
+    await window.storage.set('reminder', JSON.stringify({ email, lead, enabled: true }), false);
+    document.getElementById('reminderStatus').textContent = `Reminder active for ${email}, ${lead} days before hawl.`;
+    showToast('Reminder saved');
+  } catch (e) { showToast('Could not save reminder'); }
+}
+
+function exportReceipt() {
+  if (plan === 'free') {
+    showToast('Receipt export is a Plus feature');
+    switchTabProgrammatic('pricing');
+    return;
+  }
+  const calc = calculate();
+  const lines = [
+    'ZAKAT CALCULATION RECEIPT',
+    'Generated: ' + new Date().toLocaleString(),
+    '----------------------------------',
+    'Nisab basis: ' + nisabType,
+    'Total zakatable assets: ' + calc.totalAssets.toFixed(2),
+    'Liabilities deducted: ' + calc.liabilities.toFixed(2),
+    'Net zakatable wealth: ' + calc.net.toFixed(2),
+    'Nisab threshold: ' + calc.nisabThreshold.toFixed(2),
+    'Zakat due (2.5%): ' + calc.zakatDue.toFixed(2),
+    '----------------------------------',
+    'This receipt is a personal record, not a certified religious ruling.'
+  ];
+  const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'zakat-receipt.txt'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function upgrade(tier) {
+  plan = tier;
+  try {
+    await window.storage.set('plan', JSON.stringify(plan), false);
+  } catch (e) {}
+  updatePlanUI();
+  showToast(`Upgraded to ${tier === 'plus' ? 'Plus' : 'Pro'} (demo — no real payment taken)`);
+}
+
+function updatePlanUI() {
+  document.getElementById('planLabel').textContent =
+    plan === 'free' ? 'Free plan' : plan === 'plus' ? 'Plus plan' : 'Pro plan';
+  document.getElementById('reminderLock').style.display = plan === 'free' ? 'inline-block' : 'none';
+  ['free','plus','pro'].forEach(p => document.getElementById('plan-' + p).classList.remove('current'));
+  document.getElementById('plan-' + plan).classList.add('current');
+}
+
+async function clearAllData() {
+  try {
+    await window.storage.delete('profile', false);
+    await window.storage.delete('history', false);
+    await window.storage.delete('reminder', false);
+    await window.storage.delete('plan', false);
+    history = []; plan = 'free';
+    updatePlanUI(); renderHistory();
+    showToast('All saved data cleared');
+  } catch (e) { showToast('Nothing to clear'); }
+}
+
+loadAll();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
